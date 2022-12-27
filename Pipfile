@@ -5,6 +5,12 @@ name = "pypi"
 
 [packages]
 uvicorn = "*"
+fastapi = "*"
+sqlalchemy = "*"
+pika = "*"
+pydantic = "==1.10.2"
+redis = "*"
+requests = "*"
 
 [dev-packages]
 
