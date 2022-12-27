@@ -1,0 +1,98 @@
+version: "3.9"
+
+services:
+  web_1:
+    build: web/.
+    depends_on:
+      - db
+    networks:
+      - webnet
+    environment:
+      RABBITMQ_URL: amqp://admin:admin@rabbit:5672/%2F
+      RABBITMQ_QUEUE: links
+      DATABASE_URL: postgresql://admin:admin@db/distributeddb
+      NAME: web1
+
+  web_2:
+    build: web/.
+    depends_on:
+      - db
+    networks:
+      - webnet
+    environment:
+      RABBITMQ_URL: amqp://admin:admin@rabbit:5672/%2F
+      RABBITMQ_QUEUE: links
+      DATABASE_URL: postgresql://admin:admin@db/distributeddb
+      NAME: web2
+
+  loader:
+    build: loader/.
+    restart: on-failure
+    depends_on:
+      - rabbit
+      - nginx
+      - redis
+    networks:
+      - webnet
+    environment:
+      RABBITMQ_URL: amqp://admin:admin@rabbit:5672/%2F
+      WEB_BASE_URL: http://nginx:80
+      CACHE_HOST: redis
+
+  db:
+    image: postgres
+    restart: always
+    ports:
+      - 15432:5432
+    environment:
+      POSTGRES_PASSWORD: admin
+      POSTGRES_USER: admin
+      POSTGRES_DB: distributeddb
+    volumes:
+      - "dbdata:/var/lib/postgresql/data"
+    networks:
+      - webnet
+
+  rabbit:
+    image: rabbitmq:management
+    hostname: rabbit
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+    ports:
+      - "15672:15672"
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3
+    networks:
+      - webnet
+
+  nginx:
+    build: nginx/.
+    ports:
+      - 8080:80
+    depends_on:
+      - web_1
+      - web_2
+    networks:
+      - webnet
+
+  redis:
+    image: redis
+    networks:
+      - webnet
+    volumes:
+      - cache:/data
+
+volumes:
+  dbdata:
+  cache:
+
+networks:
+  rabbitnet:
+    driver: bridge
+
+  webnet:
+    driver: bridge
